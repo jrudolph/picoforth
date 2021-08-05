@@ -1,0 +1,60 @@
+.program ps2
+
+; IN pin 0 should be the GPIO connected to PS/2 data
+; IN pin 1 should be the GPIO connected to PS/2 clock
+; Autopush must be enabled, with a threshold of 8.
+
+    wait 0 pin 1        ; Wait for start bit (clock should be low now)
+    wait 1 pin 1        ; Wait for clock to rise again
+    set x, 7            ; load counter for data
+bitloop:
+    wait 0 pin 1        ; wait for clock falling edge
+    wait 1 pin 1        ; sample at rising edge
+    in pins, 1
+    jmp x-- bitloop
+
+    wait 0 pin 1
+    wait 1 pin 1        ; parity clock cycle, TODO: check parity
+    wait 0 pin 1
+    wait 1 pin 1        ; end bit
+
+
+% c-sdk {
+static inline void ps2_program_init(PIO pio, uint sm, uint offset, uint clock_pin, uint data_pin) {
+    // Connect these GPIOs to this PIO block
+    pio_gpio_init(pio, clock_pin);
+    pio_gpio_init(pio, data_pin);
+    //gpio_pull_up(clock_pin);
+    //gpio_pull_up(data_pin);
+
+    pio_sm_config c = ps2_program_get_default_config(offset);
+    sm_config_set_in_pins(&c, data_pin);
+    // Set the pin directions to input at the PIO
+    //pio_sm_set_consecutive_pindirs(pio, sm, clock_pin, 1, false);
+    //pio_sm_set_consecutive_pindirs(pio, sm, data_pin, 2, false);
+    pio_sm_set_pindirs_with_mask(pio, sm, 0, (1u << data_pin) | (1u << clock_pin));
+
+    // Shifting to right matches LSB-first ordering of PS/2.
+    sm_config_set_in_shift(
+        &c,
+        true,  // Shift-to-right
+        true,  // Autopush enabled
+        8      // Autopush threshold = 8
+    );
+
+    // We only receive, so disable the TX FIFO to make the RX FIFO deeper.
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
+
+    // Load our configuration, and start the program from the beginning
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+
+static inline char ps2_program_getc(PIO pio, uint sm) {
+    // 8-bit read from the uppermost byte of the FIFO, as data is left-justified
+    io_rw_8 *rxfifo_shift = (io_rw_8*)&pio->rxf[sm] + 3;
+    while (pio_sm_is_rx_fifo_empty(pio, sm))
+        tight_loop_contents();
+    return (char)*rxfifo_shift;
+}
+%}
