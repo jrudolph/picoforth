@@ -272,7 +272,141 @@ void display() {
     gpio_put(PICO_DEFAULT_SPI_CSN_PIN, 0);
 }
 
+uint LCDA0_PIN = 13;
+uint LCDRES_PIN = 12;
+uint LCDCS1_PIN = 17;
+const uint LCDCLK_PIN = 18;
+const uint LCDTX_PIN = 19;
+
+void lcdcommand(uint8_t cmd) {
+    printf("CMD: %x\n", cmd);
+    gpio_put(LCDA0_PIN, 0);
+    spi_write_blocking (spi_default, &cmd, 1);
+    sleep_ms(1000);
+}
+
+void lcddata(uint8_t cmd) {
+    gpio_put(LCDA0_PIN, 1);
+    spi_write_blocking (spi_default, &cmd, 1);
+}
+
+int lcdrun(/* uint a0, uint res, uint cs1 */) {
+    /* LCDA0_PIN = a0;
+    LCDRES_PIN = res;
+    LCDCS1_PIN = cs1; */
+
+    printf("a0: %d res: %d cs: %d\n", LCDA0_PIN, LCDRES_PIN, LCDCS1_PIN);
+    gpio_put(LCDCS1_PIN, 0);
+
+    gpio_put(LCDRES_PIN, 0);
+    sleep_ms(500);
+    gpio_put(LCDRES_PIN, 1);
+    sleep_ms(1);
+
+    //lcdcommand(0xa5);
+    lcdcommand(0xe2); // RESET
+    lcdcommand(0xa2); // bias 9
+    lcdcommand(0xa1); // horiz flip
+    lcdcommand(0xc8); // vertical flip
+    lcdcommand(0x40); // top left start
+    lcdcommand(0x2f); // all power on (adafruit does this one at a time, but it doesn't seem to be required)
+    lcdcommand(0x22); // resistor divider contrast 2 (0..7) (values don't make a difference)
+    lcdcommand(0xaf); // display on
+    lcdcommand(0x81); // dynamic contrast (values don't make a difference)
+    lcdcommand(31);
+
+    /* for (int i = 0; i < 8; i += 1) {
+        lcdcommand(0x28 | i); // resistor divider contrast 2 (0..7)
+    } */
+
+        //     spi.write([
+    //  0xA3, // bias 7 (0xA2 for bias 9)
+    //  0xA0, // no horiz flip
+    //  0xC8, // vertical flip
+    //  0x40, // top left start
+    //  0x2F, // all power on (adafruit does this one at a time, but it doesn't seem to be required)
+    //  0x20|2, // resistor divider contrast 2 (0..7)
+    //  0xAF, // display on
+    //  0x81, // dynamic contrast
+    //  31 // 0..63
+
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0);
+    lcddata(0);
+    lcddata(0);
+    lcddata(0);
+    lcddata(0);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+    lcddata(0xaa);
+    lcddata(0x55);
+
+    printf("Display finished!\n");
+    sleep_ms(2000);
+}
+
 int main() {
+    stdio_init_all();
+    
+    sleep_ms(1000);
+    printf("Hello, world!\n");
+
+    spi_init(spi_default, 1000);
+    gpio_set_function(PICO_DEFAULT_SPI_SCK_PIN, GPIO_FUNC_SPI);
+    gpio_set_function(PICO_DEFAULT_SPI_TX_PIN, GPIO_FUNC_SPI);
+
+    gpio_init(LCDCS1_PIN);
+    gpio_set_dir(LCDCS1_PIN, GPIO_OUT);
+    gpio_init(LCDA0_PIN);
+    gpio_set_dir(LCDA0_PIN, GPIO_OUT);
+    gpio_init(LCDRES_PIN);
+    gpio_set_dir(LCDRES_PIN, GPIO_OUT);
+
+    //lcdrun(12, 13, 17);
+    //lcdrun(12, 17, 13);
+    //lcdrun(13, 12, 17);
+    lcdrun(/* 17, 12, 13 */);
+    //lcdrun(13, 17, 12);
+    //lcdrun(17, 12, 13);
+    //lcdrun(17, 13, 12);
+}
+
+int main3() {
     stdio_init_all();
     //gpio_init(CLOCK_PIN);
     //gpio_init(DATA_PIN);
