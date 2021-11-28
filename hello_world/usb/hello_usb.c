@@ -14,6 +14,9 @@
 #include "ps2.pio.h"
 #include "clocked_input.pio.h"
 
+#include "tama-mini02-font.h"
+#include "font8x8_basic.h"
+
 const uint CLOCK_PIN = 15;
 const uint DATA_PIN = 14;
 
@@ -281,19 +284,67 @@ const uint LCDTX_PIN = 19;
 void lcdcommand(uint8_t cmd) {
     printf("CMD: %x\n", cmd);
     gpio_put(LCDA0_PIN, 0);
+    //sleep_ms(1);
     spi_write_blocking (spi_default, &cmd, 1);
-    sleep_ms(1000);
+    //sleep_ms(1000);
 }
 
-void lcddata(uint8_t cmd) {
+void lcddata_send(uint8_t cmd) {
     gpio_put(LCDA0_PIN, 1);
+    //sleep_ms(1);
     spi_write_blocking (spi_default, &cmd, 1);
+}
+
+int col = 0;
+int line = 0;
+void lcddata(uint8_t cmd) {
+    lcddata_send(cmd);
+    col += 1;
+
+    int new_line = col >> 7;
+    if (line != new_line) {
+        line = new_line & 0x7;
+        lcdcommand(0xb0 + line);
+        lcdcommand(0x10); // column address 3
+        lcdcommand(0x04);
+    }
+}
+
+void lcdchar(char c) {
+    //const unsigned char *glyph = font8x8_basic_cols[c];
+    const unsigned char *glyph = tama_font[c - ' '];
+    lcddata(glyph[0]);
+    lcddata(glyph[1]);
+    lcddata(glyph[2]);
+    lcddata(glyph[3]);
+    lcddata(glyph[4]);
+    //lcddata(glyph[5]);
+    //lcddata(glyph[6]);
+    //lcddata(glyph[7]);
+}
+void lcdstring(char *str) {
+    size_t len = strnlen(str, 100);
+    for (int i = 0; i < len; i++)
+        lcdchar(str[i]);
+}
+
+void transpose_font(char (*source_font)[][8], char (*target_font)[][8], int num_chars) {
+    for (int ch = 0; ch < 128; ch++) {
+        for (int col = 0; col < 8; col++) {
+            char c = 0;
+            for (int row = 0; row < 8; row++) {
+                c |= ((((*source_font)[ch][row]) >> col) & 1) << row;
+            }
+            (*target_font)[ch][col] = c;
+        }
+    }
 }
 
 int lcdrun(/* uint a0, uint res, uint cs1 */) {
     /* LCDA0_PIN = a0;
     LCDRES_PIN = res;
     LCDCS1_PIN = cs1; */
+    transpose_font(&font8x8_basic, &font8x8_basic_cols, 128);
 
     printf("a0: %d res: %d cs: %d\n", LCDA0_PIN, LCDRES_PIN, LCDCS1_PIN);
     gpio_put(LCDCS1_PIN, 0);
@@ -330,6 +381,10 @@ int lcdrun(/* uint a0, uint res, uint cs1 */) {
     //  0x81, // dynamic contrast
     //  31 // 0..63
 
+    //lcdstring("Hello");
+    //lcdcommand(0xb1);
+    //sleep_ms(100);
+
     lcddata(0xaa);
     lcddata(0x55);
     lcddata(0xaa);
@@ -337,24 +392,18 @@ int lcdrun(/* uint a0, uint res, uint cs1 */) {
     lcddata(0xaa);
     lcddata(0x55);
     lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0);
-    lcddata(0);
-    lcddata(0);
-    lcddata(0);
-    lcddata(0);
+
+    lcdcommand(0x04); // reset to column 3
+    lcdstring("Hello World! ");
+    lcdstring("Das ist ein extrem langer Text, den ich hier jetzt mal ausfuehrlich widergeben moechte, um zu sehen, ");
+    lcdstring("wie der Speicher organisiert ist.");
+
+    /* sleep_ms(1000);
+    for (int i = 0; i < 64; i++) {
+        lcdcommand(0x40 + i);
+        sleep_ms(20);
+    } */
+
     lcddata(0xaa);
     lcddata(0x55);
     lcddata(0xaa);
@@ -383,10 +432,10 @@ int lcdrun(/* uint a0, uint res, uint cs1 */) {
 int main() {
     stdio_init_all();
     
-    sleep_ms(1000);
-    printf("Hello, world!\n");
+    /* sleep_ms(1000);
+    printf("Hello, world!\n"); */
 
-    spi_init(spi_default, 1000);
+    spi_init(spi_default, 1000 * 1000);
     gpio_set_function(PICO_DEFAULT_SPI_SCK_PIN, GPIO_FUNC_SPI);
     gpio_set_function(PICO_DEFAULT_SPI_TX_PIN, GPIO_FUNC_SPI);
 
@@ -404,6 +453,7 @@ int main() {
     //lcdrun(13, 17, 12);
     //lcdrun(17, 12, 13);
     //lcdrun(17, 13, 12);
+    while(true);
 }
 
 int main3() {
