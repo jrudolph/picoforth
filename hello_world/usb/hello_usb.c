@@ -101,6 +101,40 @@ void transpose_font(char (*source_font)[][8], char (*target_font)[][8], int num_
     }
 }
 
+void animate_pixels() {
+    for (int l = 7; l >= 0; l--) {
+        for (int c = 0; c < 128; c++) {
+            uint8_t data = frame_buf[l][c];
+            //frame_buf[l][c] = data << 1;
+            //if ((data & 0x80) && l < 7)
+            //    frame_buf[l + 1][c] = frame_buf[l + 1][c] | 0x01;
+            uint8_t new_data = 0;
+            if (data)
+                for (int p = 7; p >= 0; p--) {
+                    bool is_set = (data >> p) & 1;
+                    if (is_set) {
+                        bool below;
+                        if (p == 7)
+                            if (l == 7) below = 1;
+                            else below = frame_buf[l + 1][c] & 1;
+                        else below = (new_data >> (p + 1)) & 1;
+
+                        if (below) new_data |= 1 << p; // keep pixel if below is also set
+                        else { // shift one down
+                            if (p == 7)
+                                if (l < 7)
+                                    frame_buf[l + 1][c] |= 1; // set highest pixel of row below
+                                else ; //we would need to set line 8 which has already pixels set by definition
+                            else
+                               new_data |= 1 << (p + 1);
+                        }
+                    }
+                }
+            frame_buf[l][c] = new_data;
+        }
+    }
+}
+
 int lcdrun(/* uint a0, uint res, uint cs1 */) {
     /* LCDA0_PIN = a0;
     LCDRES_PIN = res;
@@ -185,6 +219,13 @@ int lcdrun(/* uint a0, uint res, uint cs1 */) {
     lcddata(0xaa);
     lcddata(0x55);
     paint_buffer();
+
+    sleep_ms(1000);
+    for (int i = 0; i < 1000; i++) {
+        animate_pixels();
+        paint_buffer();
+        sleep_ms(25);
+    }
 
     printf("Display finished!\n");
     sleep_ms(2000);
