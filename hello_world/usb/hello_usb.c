@@ -26,14 +26,11 @@ const uint LCDTX_PIN = 19;
 void lcdcommand(uint8_t cmd) {
     printf("CMD: %x\n", cmd);
     gpio_put(LCDA0_PIN, 0);
-    //sleep_ms(1);
     spi_write_blocking (spi_default, &cmd, 1);
-    //sleep_ms(1000);
 }
 
 void lcddata_send(uint8_t cmd) {
     gpio_put(LCDA0_PIN, 1);
-    //sleep_ms(1);
     spi_write_blocking (spi_default, &cmd, 1);
 }
 
@@ -44,23 +41,8 @@ uint8_t (*frame_buf)[8][128] = &frame_buffers[0];
 int col = 0;
 int line = 0;
 void lcddata(uint8_t cmd) {
-    //lcddata_send(cmd);
     uint8_t l = (col >> 7) & 0x7;
-    if (col == 128) {
-        uint8_t x = 12;
-        x++;
-        sleep_ms(1);
-    }
     (*frame_buf)[l][(col++)&0x7f] = cmd;
-    /* col += 1;
-
-    int new_line = col >> 7;
-    if (line != new_line) {
-        line = new_line & 0x7;
-        //lcdcommand(0xb0 + line);
-        //lcdcommand(0x10); // column address 4
-        //lcdcommand(0x04);
-    } */
 }
 void paint_buffer() {
     for (uint8_t l = 0; l < 8; l++) {
@@ -111,9 +93,6 @@ void animate_pixels() {
     for (int l = 7; l >= 0; l--) {
         for (int c = 0; c < 128; c++) {
             uint8_t data = (*frame_buf)[l][c];
-            //frame_buf[l][c] = data << 1;
-            //if ((data & 0x80) && l < 7)
-            //    frame_buf[l + 1][c] = frame_buf[l + 1][c] | 0x01;
             uint8_t new_data = 0;
             if (data) {
                 if ((data & 0x80))
@@ -166,25 +145,13 @@ int lcdrun(/* uint a0, uint res, uint cs1 */) {
     lcdcommand(0xc8); // vertical flip
     lcdcommand(0x40); // top left start
     lcdcommand(0x2f); // all power on (adafruit does this one at a time, but it doesn't seem to be required)
-    lcdcommand(0x22); // resistor divider contrast 2 (0..7) (values don't make a difference)
-    lcdcommand(0xaf); // display on
-    lcdcommand(0x81); // dynamic contrast (values don't make a difference)
-    lcdcommand(31);
+    //lcdcommand(0x22); // resistor divider contrast 2 (0..7) (values don't make a difference)
+    //lcdcommand(0x81); // dynamic contrast (values don't make a difference)
+    //lcdcommand(31);
 
     /* for (int i = 0; i < 8; i += 1) {
         lcdcommand(0x28 | i); // resistor divider contrast 2 (0..7)
     } */
-
-        //     spi.write([
-    //  0xA3, // bias 7 (0xA2 for bias 9)
-    //  0xA0, // no horiz flip
-    //  0xC8, // vertical flip
-    //  0x40, // top left start
-    //  0x2F, // all power on (adafruit does this one at a time, but it doesn't seem to be required)
-    //  0x20|2, // resistor divider contrast 2 (0..7)
-    //  0xAF, // display on
-    //  0x81, // dynamic contrast
-    //  31 // 0..63
 
     //lcdstring("Hello");
     //lcdcommand(0xb1);
@@ -229,12 +196,13 @@ int lcdrun(/* uint a0, uint res, uint cs1 */) {
     lcddata(0xaa);
     lcddata(0x55);
     paint_buffer();
+    lcdcommand(0xaf); // display on
 
     sleep_ms(1000);
     for (int i = 0; i < 1000; i++) {
         animate_pixels();
         paint_buffer();
-        sleep_ms(31);
+        sleep_ms(38);
     }
 
     printf("Display finished!\n");
