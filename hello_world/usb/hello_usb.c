@@ -37,7 +37,9 @@ void lcddata_send(uint8_t cmd) {
     spi_write_blocking (spi_default, &cmd, 1);
 }
 
-uint8_t frame_buf[8][128]; // 8 lines of 128 columns of 8 pixel height = 64 * 128 bit
+bool current_buffer = 0;
+uint8_t frame_buffers[2][8][128]; // 8 lines of 128 columns of 8 pixel height = 64 * 128 bit
+uint8_t (*frame_buf)[8][128] = &frame_buffers[0];
 
 int col = 0;
 int line = 0;
@@ -49,7 +51,7 @@ void lcddata(uint8_t cmd) {
         x++;
         sleep_ms(1);
     }
-    frame_buf[l][(col++)&0x7f] = cmd;
+    (*frame_buf)[l][(col++)&0x7f] = cmd;
     /* col += 1;
 
     int new_line = col >> 7;
@@ -66,8 +68,12 @@ void paint_buffer() {
         lcdcommand(0x10); // select column 4
         lcdcommand(0x04);
         for (uint8_t c = 0; c < 128; c++)
-            lcddata_send(frame_buf[l][c]);
+            lcddata_send(frame_buffers[0][l][c] | frame_buffers[1][l][c]);
     }
+    current_buffer = !current_buffer;
+    void *old_buf = frame_buf;
+    frame_buf = &(frame_buffers[current_buffer & 1]);
+    memcpy(frame_buf, old_buf, 128 * 8);
 }
 
 void lcdchar(char c) {
@@ -104,33 +110,37 @@ void transpose_font(char (*source_font)[][8], char (*target_font)[][8], int num_
 void animate_pixels() {
     for (int l = 7; l >= 0; l--) {
         for (int c = 0; c < 128; c++) {
-            uint8_t data = frame_buf[l][c];
+            uint8_t data = (*frame_buf)[l][c];
             //frame_buf[l][c] = data << 1;
             //if ((data & 0x80) && l < 7)
             //    frame_buf[l + 1][c] = frame_buf[l + 1][c] | 0x01;
             uint8_t new_data = 0;
-            if (data)
-                for (int p = 7; p >= 0; p--) {
-                    bool is_set = (data >> p) & 1;
-                    if (is_set) {
-                        bool below;
-                        if (p == 7)
-                            if (l == 7) below = 1;
-                            else below = frame_buf[l + 1][c] & 1;
-                        else below = (new_data >> (p + 1)) & 1;
-
-                        if (below) new_data |= 1 << p; // keep pixel if below is also set
-                        else { // shift one down
+            if (data) {
+                if ((data & 0x80))
+                    for (int p = 7; p >= 0; p--) {
+                        bool is_set = (data >> p) & 1;
+                        if (is_set) {
+                            bool below;
                             if (p == 7)
-                                if (l < 7)
-                                    frame_buf[l + 1][c] |= 1; // set highest pixel of row below
-                                else ; //we would need to set line 8 which has already pixels set by definition
-                            else
-                               new_data |= 1 << (p + 1);
+                                if (l == 7) below = 1;
+                                else below = (*frame_buf)[l + 1][c] & 1;
+                            else below = (new_data >> (p + 1)) & 1;
+
+                            if (below) new_data |= 1 << p; // keep pixel if below is also set
+                            else { // shift one down
+                                if (p == 7)
+                                    if (l < 7)
+                                        (*frame_buf)[l + 1][c] |= 1; // set highest pixel of row below
+                                    else ; //we would need to set line 8 which has already pixels set by definition
+                                else
+                                new_data |= 1 << (p + 1);
+                            }
                         }
                     }
-                }
-            frame_buf[l][c] = new_data;
+                else
+                    new_data = data << 1; // we can shift directly;
+            }
+            (*frame_buf)[l][c] = new_data;
         }
     }
 }
@@ -151,7 +161,7 @@ int lcdrun(/* uint a0, uint res, uint cs1 */) {
 
     //lcdcommand(0xa5);
     lcdcommand(0xe2); // RESET
-    lcdcommand(0xa2); // bias 9
+    lcdcommand(0xa2); // bias 1/9, 0xa3 would be 1/7 in which case the display is almost black
     lcdcommand(0xa1); // horiz flip
     lcdcommand(0xc8); // vertical flip
     lcdcommand(0x40); // top left start
@@ -224,7 +234,7 @@ int lcdrun(/* uint a0, uint res, uint cs1 */) {
     for (int i = 0; i < 1000; i++) {
         animate_pixels();
         paint_buffer();
-        sleep_ms(25);
+        sleep_ms(31);
     }
 
     printf("Display finished!\n");
@@ -237,7 +247,7 @@ int main() {
     /* sleep_ms(1000);
     printf("Hello, world!\n"); */
 
-    spi_init(spi_default, 1000 * 1000);
+    spi_init(spi_default, 2000 * 1000);
     gpio_set_function(PICO_DEFAULT_SPI_SCK_PIN, GPIO_FUNC_SPI);
     gpio_set_function(PICO_DEFAULT_SPI_TX_PIN, GPIO_FUNC_SPI);
 
