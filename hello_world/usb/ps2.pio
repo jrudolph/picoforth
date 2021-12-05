@@ -18,6 +18,8 @@ bitloop:
     wait 0 pin 1
     wait 1 pin 1        ; end bit
 
+    push noblock
+
 
 % c-sdk {
 static inline void ps2_program_init(PIO pio, uint sm, uint offset, uint clock_pin, uint data_pin) {
@@ -38,7 +40,7 @@ static inline void ps2_program_init(PIO pio, uint sm, uint offset, uint clock_pi
     sm_config_set_in_shift(
         &c,
         true,  // Shift-to-right
-        true,  // Autopush enabled
+        false,  // Autopush enabled
         8      // Autopush threshold = 8
     );
 
