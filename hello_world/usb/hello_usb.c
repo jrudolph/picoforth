@@ -124,10 +124,7 @@ void animate_pixels() {
     }
 }
 
-int lcdrun(/* uint a0, uint res, uint cs1 */) {
-    /* LCDA0_PIN = a0;
-    LCDRES_PIN = res;
-    LCDCS1_PIN = cs1; */
+void lcdinit() {
     transpose_font(&font8x8_basic, &font8x8_basic_cols, 128);
 
     printf("a0: %d res: %d cs: %d\n", LCDA0_PIN, LCDRES_PIN, LCDCS1_PIN);
@@ -156,6 +153,17 @@ int lcdrun(/* uint a0, uint res, uint cs1 */) {
     //lcdstring("Hello");
     //lcdcommand(0xb1);
     sleep_ms(100);
+
+    lcdstring("> ");
+    lcdcommand(0xaf); // display on
+    paint_buffer();
+}
+
+int lcdrun(/* uint a0, uint res, uint cs1 */) {
+    /* LCDA0_PIN = a0;
+    LCDRES_PIN = res;
+    LCDCS1_PIN = cs1; */
+    lcdinit();
 
     // lcddata(0xaa);
     // lcddata(0x55);
@@ -196,7 +204,6 @@ int lcdrun(/* uint a0, uint res, uint cs1 */) {
     lcddata(0xaa);
     lcddata(0x55);
     paint_buffer();
-    lcdcommand(0xaf); // display on
 
     sleep_ms(1000);
     for (int i = 0; i < 1000; i++) {
@@ -209,13 +216,54 @@ int lcdrun(/* uint a0, uint res, uint cs1 */) {
     sleep_ms(2000);
 }
 
+#define CLOCK_PIN 15
+#define DATA_PIN 14
+
+// mapping generated with scala code, copied from table at https://techdocs.altium.com/display/FPGA/PS2+Keyboard+Scan+Codes
+// val codeMap = "11621e32642552e63673d83e946045-4e=55q15w1de24r2dt2cy35u3ci43o44p4d[54]5b\\5da1cs1bd23f2bg34h33j3bk42l4b,4c'52z1ax22c21v2ab32n31m3a,41.49/4a 29".grouped(3).map { case d => (java.lang.Integer.parseInt(d.tail, 16),d.head) }.toMap
+// (0 until 128).map { i => codeMap.getOrElse(i, '?') }.mkString // needs fixing for escaped chars
+char code_to_char_lower[128] =
+    "?????????????????????q1???zsaw2??cxde43?? vftr5??nbhgy6???mju78??,kio09??./l,p-???'?[=?????]?\\??????????????????????????????????";
+char code_to_char[128] =
+    "?????????????????????Q1???ZSAW2??CXDE43?? VFTR5??NBHGY6???MJU78??,KIO09??./L,P-???'?[=?????]?\\??????????????????????????????????";
+
+void keyboard_program() {
+    lcdinit();
+
+    gpio_init(CLOCK_PIN);
+    gpio_init(DATA_PIN);
+    gpio_set_dir(CLOCK_PIN, GPIO_IN);
+    gpio_set_dir(DATA_PIN, GPIO_IN);
+
+    PIO pio = pio0;
+    uint offset = pio_add_program(pio, &ps2_program);
+    uint sm = pio_claim_unused_sm(pio, true);
+    ps2_program_init(pio, sm, offset, CLOCK_PIN, DATA_PIN);
+    
+    while(true) {
+        char rxdata = ps2_program_getc(pio, sm);
+        char buffer[100];
+        if (rxdata < 128) lcdchar(code_to_char[rxdata]);
+        else if (rxdata == 0xf0) {
+            // skip release code
+            ps2_program_getc(pio, sm);
+        }
+        else {
+            snprintf(buffer, 100, "%02x ", rxdata);
+            lcdstring(buffer);
+        }
+        paint_buffer();
+    }
+}
+
+
 int main() {
     stdio_init_all();
     
     /* sleep_ms(1000);
     printf("Hello, world!\n"); */
 
-    spi_init(spi_default, 2000 * 1000);
+    spi_init(spi_default, 1000 * 1000);
     gpio_set_function(PICO_DEFAULT_SPI_SCK_PIN, GPIO_FUNC_SPI);
     gpio_set_function(PICO_DEFAULT_SPI_TX_PIN, GPIO_FUNC_SPI);
 
@@ -229,7 +277,9 @@ int main() {
     //lcdrun(12, 13, 17);
     //lcdrun(12, 17, 13);
     //lcdrun(13, 12, 17);
-    lcdrun(/* 17, 12, 13 */);
+    //lcdrun(/* 17, 12, 13 */);
+    keyboard_program();
+    //lcdrun();
     //lcdrun(13, 17, 12);
     //lcdrun(17, 12, 13);
     //lcdrun(17, 13, 12);

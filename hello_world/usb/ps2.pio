@@ -24,8 +24,8 @@ static inline void ps2_program_init(PIO pio, uint sm, uint offset, uint clock_pi
     // Connect these GPIOs to this PIO block
     pio_gpio_init(pio, clock_pin);
     pio_gpio_init(pio, data_pin);
-    //gpio_pull_up(clock_pin);
-    //gpio_pull_up(data_pin);
+    // gpio_pull_up(clock_pin);
+    // gpio_pull_up(data_pin);
 
     pio_sm_config c = ps2_program_get_default_config(offset);
     sm_config_set_in_pins(&c, data_pin);
