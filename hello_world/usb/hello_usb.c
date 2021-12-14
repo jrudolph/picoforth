@@ -206,7 +206,7 @@ int lcdrun(/* uint a0, uint res, uint cs1 */) {
     paint_buffer();
 
     sleep_ms(1000);
-    for (int i = 0; i < 1000; i++) {
+    for (int i = 0; i < 100; i++) {
         animate_pixels();
         paint_buffer();
         sleep_ms(38);
@@ -241,9 +241,20 @@ void keyboard_program() {
     ps2_program_init(pio, sm, offset, CLOCK_PIN, DATA_PIN);
     
     while(true) {
-        char rxdata = ps2_program_getc(pio, sm);
+        uint8_t rxdata = ps2_program_getc(pio, sm);
         char buffer[100];
-        if (rxdata < 128) lcdchar(code_to_char[rxdata]);
+        if (rxdata == 0x76) { // ESC
+            for (int i = 0; i < 100; i++) {
+                animate_pixels();
+                paint_buffer();
+                sleep_ms(38);
+            }
+            pio_sm_clear_fifos(pio, sm);
+            sleep_ms(100);
+        }
+        else if (rxdata < 128) {
+            lcdchar(code_to_char[rxdata]);
+        }
         else if (rxdata == 0xf0) {
             // skip release code
             ps2_program_getc(pio, sm);
@@ -255,7 +266,6 @@ void keyboard_program() {
         paint_buffer();
     }
 }
-
 
 int main() {
     stdio_init_all();
