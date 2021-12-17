@@ -95,41 +95,6 @@ void transpose_font(char (*source_font)[][8], char (*target_font)[][8], int num_
     }
 }
 
-void animate_pixels() {
-    for (int l = 7; l >= 0; l--) {
-        for (int c = 0; c < 128; c++) {
-            uint8_t data = (*frame_buf)[l][c];
-            uint8_t new_data = 0;
-            if (data) {
-                if ((data & 0x80))
-                    for (int p = 7; p >= 0; p--) {
-                        bool is_set = (data >> p) & 1;
-                        if (is_set) {
-                            bool below;
-                            if (p == 7)
-                                if (l == 7) below = 1;
-                                else below = (*frame_buf)[l + 1][c] & 1;
-                            else below = (new_data >> (p + 1)) & 1;
-
-                            if (below) new_data |= 1 << p; // keep pixel if below is also set
-                            else { // shift one down
-                                if (p == 7)
-                                    if (l < 7)
-                                        (*frame_buf)[l + 1][c] |= 1; // set highest pixel of row below
-                                    else ; //we would need to set line 8 which has already pixels set by definition
-                                else
-                                new_data |= 1 << (p + 1);
-                            }
-                        }
-                    }
-                else
-                    new_data = data << 1; // we can shift directly;
-            }
-            (*frame_buf)[l][c] = new_data;
-        }
-    }
-}
-
 void lcdinit() {
     transpose_font(&font8x8_basic, &font8x8_basic_cols, 128);
 
@@ -165,63 +130,6 @@ void lcdinit() {
     paint_buffer();
 }
 
-int lcdrun(/* uint a0, uint res, uint cs1 */) {
-    /* LCDA0_PIN = a0;
-    LCDRES_PIN = res;
-    LCDCS1_PIN = cs1; */
-    lcdinit();
-
-    // lcddata(0xaa);
-    // lcddata(0x55);
-    // lcddata(0xaa);
-    // lcddata(0x55);
-    // lcddata(0xaa);
-    // lcddata(0x55);
-    // lcddata(0xaa);
-
-    //lcdcommand(0x04); // reset to column 3
-    lcdstring("Hello Werld! ");
-    lcdstring("Das ist ein extrem langer Text, den ich hier jetzt mal ausfuehrlich wiedergeben moechte, um zu sehen, ");
-    lcdstring("wie der Speicher organisiert ist.");
-    // sleep_ms(1000);
-    // for (int i = 0; i < 64; i++) {
-    //     lcdcommand(0x40 + i);
-    //     sleep_ms(20);
-    // }
-
-    lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0xaa);
-    lcddata(0x55);
-    lcddata(0xaa);
-    lcddata(0x55);
-    paint_buffer();
-
-    sleep_ms(1000);
-    for (int i = 0; i < 100; i++) {
-        animate_pixels();
-        paint_buffer();
-        sleep_ms(38);
-    }
-
-    printf("Display finished!\n");
-    sleep_ms(2000);
-}
-
 #define CLOCK_PIN 15
 #define DATA_PIN 14
 
@@ -249,6 +157,7 @@ uint8_t read_line(char* buffer) {
         uint8_t code = ps2_program_getc(pio, sm);
         if (code == 0x5a) { // enter
             put_char('\n');
+            buffer[read] = 0;
             return read;
         }
         else if (code == 0x59 || code == 0x12) {
@@ -283,51 +192,22 @@ void init_keyboard() {
     ps2_program_init(pio, sm, offset, CLOCK_PIN, DATA_PIN);
 }
 
+void forth_repl();
 void forth_init() {
     lcdinit();
     init_keyboard();
-    char buffer[256];
+    while(true)
+        forth_repl();
+    /* char buffer[256];
 
     while(true) {
         uint8_t read = read_line(buffer);
         snprintf(buffer, 100, "Read %d chars", read);
         lcdstring(buffer);
         put_char('\n');
-    }
+    } */
 }
 
-void keyboard_program() {
-    lcdinit();
-    init_keyboard();
-    
-    while(true) {
-        uint8_t rxdata = ps2_program_getc(pio, sm);
-        char buffer[100];
-        if (rxdata == 0x76) { // ESC
-            for (int i = 0; i < 100; i++) {
-                animate_pixels();
-                paint_buffer();
-                sleep_ms(38);
-            }
-            pio_sm_clear_fifos(pio, sm);
-            sleep_ms(100);
-        }
-        else if (rxdata == 0x5a) // newline
-            new_line();
-        else if (rxdata < 128) {
-            lcdchar(code_to_char[rxdata]);
-        }
-        else if (rxdata == 0xf0) {
-            // skip release code
-            ps2_program_getc(pio, sm);
-        }
-        else {
-            snprintf(buffer, 100, "%02x ", rxdata);
-            lcdstring(buffer);
-        }
-        paint_buffer();
-    }
-}
 
 int main() {
     stdio_init_all();
@@ -346,16 +226,7 @@ int main() {
     gpio_init(LCDRES_PIN);
     gpio_set_dir(LCDRES_PIN, GPIO_OUT);
 
-    //lcdrun(12, 13, 17);
-    //lcdrun(12, 17, 13);
-    //lcdrun(13, 12, 17);
-    //lcdrun(/* 17, 12, 13 */);
-    //keyboard_program();
     forth_init();
 
-    //lcdrun();
-    //lcdrun(13, 17, 12);
-    //lcdrun(17, 12, 13);
-    //lcdrun(17, 13, 12);
-    while(true);
+    while(true) tight_loop_contents();
 }
