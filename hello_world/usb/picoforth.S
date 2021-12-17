@@ -12,6 +12,7 @@
 //   stack contains user values
 //   r7 return stack pointer
 //   r6 contains top of stack
+//   r5 threaded code pointer
 
 regular_func forth_repl
     push {r4, r5, lr}
@@ -79,6 +80,82 @@ done:
     movs r0, r4
     movs r1, r5
     pop {r4, r5, pc}
+.pool
+
+.macro NEXT
+    adds r5, #4
+    ldr r1, [r5]
+    bx r1
+.endm
+
+regular_func DOCOL
+    str r5, [r7]
+    adds r7, #4
+    mov r5, lr
+    subs r5, #5 // clear thumb bit
+    NEXT
+
+.set EXIT, 3f + 1 // set thumb bit
+3:
+    subs r7, #4
+    ldr r5, [r7]
+    ldr r1, [r5]
+    bx r1
+
+.macro def_word label,name
+.align 2
+1:
+.word 1f
+.word 3f -2f - 1
+2:
+.string "\name"
+3:
+.align 2
+.set \label, 3f+1
+3:
+.endm
+
+def_word MINUS,-
+    pop {r1}
+    subs r6, r1, r6
+    NEXT
+
+def_word PLUS,+
+    pop {r1}
+    adds r6, r1
+    NEXT
+
+def_word DUP,"dup"
+    push {r6}
+    NEXT
+
+def_word DROP,"drop"
+    pop {r6}
+    NEXT
+
+def_word DOUBLE,"double"
+    bl DOCOL
+    .word DUP
+    .word PLUS
+    .word EXIT
+
+// final word definition needs to be written manually
+1:
+.word 0
+.word 0    
+
+regular_func exec_double_test
+    ldr r7, =return_stack
+    ldr r5, =return
+    //str r0, [r7]
+    //adds r7, #4
+    movs r6, #12
+next:    
+    b DOUBLE
+return:
+    .word finished + 1
+finished:
+    bl finished
 
 .section .data
 here:            .word forth_code_area

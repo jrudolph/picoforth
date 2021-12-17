@@ -209,9 +209,12 @@ void init_keyboard() {
 }
 
 void forth_repl();
+void exec_double_test();
 void forth_init() {
     lcdinit();
     init_keyboard();
+    exec_double_test();
+
     while(true)
         forth_repl();
     /* char buffer[256];
@@ -223,7 +226,6 @@ void forth_init() {
         put_char('\n');
     } */
 }
-
 
 int main() {
     stdio_init_all();
