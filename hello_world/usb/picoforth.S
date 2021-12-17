@@ -83,16 +83,14 @@ done:
 .pool
 
 .macro NEXT
-    adds r5, #4
-    ldr r1, [r5]
+    ldm r5!, {r1}
     bx r1
 .endm
 
 regular_func DOCOL
-    str r5, [r7]
-    adds r7, #4
+    stm r7!, {r5}
     mov r5, lr
-    subs r5, #5 // clear thumb bit
+    subs r5, #1 // clear thumb bit
     NEXT
 
 .set EXIT, 3f + 1 // set thumb bit
@@ -105,13 +103,13 @@ regular_func DOCOL
 .macro def_word label,name
 .align 2
 1:
-.word 1f
-.word 3f -2f - 1
+.word 1f            // pointer to next dict entry
+.word 3f -2f - 1    // size of name
 2:
-.string "\name"
+.string "\name"     // name
 3:
 .align 2
-.set \label, 3f+1
+.set \label, 3f+1   // actual label with thumb bit set (so we can use bx)
 3:
 .endm
 
@@ -145,11 +143,10 @@ def_word DOUBLE,"double"
 .word 0    
 
 regular_func exec_double_test
+    // setup forth env
     ldr r7, =return_stack
     ldr r5, =return
-    //str r0, [r7]
-    //adds r7, #4
-    movs r6, #12
+    movs r6, #12 // initial stack val
 next:    
     b DOUBLE
 return:
