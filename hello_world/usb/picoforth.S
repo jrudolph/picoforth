@@ -129,15 +129,15 @@ def_word PLUS,+
     adds r6, r1
     NEXT
 
-def_word DUP,"dup"
+def_word DUP,dup
     push {r6}
     NEXT
 
-def_word DROP,"drop"
+def_word DROP,drop
     pop {r6}
     NEXT
 
-def_word DOUBLE,"double"
+def_word DOUBLE,double
     bl DOCOL
     .word LIT
     .word 0x1234
