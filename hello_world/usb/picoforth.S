@@ -12,7 +12,7 @@
 //   stack contains user values
 //   r7 return stack pointer
 //   r6 contains top of stack
-//   r5 threaded code pointer
+//   r5 threaded code pointer, values need to have thumb bit set, so that we can use `bx` directly
 
 regular_func forth_repl
     push {r4, r5, lr}
@@ -100,6 +100,12 @@ regular_func DOCOL
     ldr r1, [r5]
     bx r1
 
+.set LIT, 3f + 1 // set thumb bit
+3:
+    push {r6}
+    ldm r5!, {r6}
+    NEXT
+
 .macro def_word label,name
 .align 2
 1:
@@ -133,6 +139,8 @@ def_word DROP,"drop"
 
 def_word DOUBLE,"double"
     bl DOCOL
+    .word LIT
+    .word 0x1234
     .word DUP
     .word PLUS
     .word EXIT
