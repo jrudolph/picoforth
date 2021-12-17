@@ -39,13 +39,12 @@ uint8_t frame_buffers[2][8][128]; // 8 lines of 128 columns of 8 pixel height = 
 uint8_t (*frame_buf)[8][128] = &frame_buffers[0];
 
 int col = 0;
-int line = 0;
 void lcddata(uint8_t cmd) {
     uint8_t l = (col >> 7) & 0x7;
     (*frame_buf)[l][(col++)&0x7f] = cmd;
 }
 void new_line() {
-    line = (line + 1) & 0x7;
+    uint8_t line = ((col >> 7) + 1) & 0x07;
     col = line << 7;
     for (int c = 0; c < 128; c++)
         (*frame_buf)[line][c] = 0;
@@ -77,6 +76,11 @@ void lcdchar(char c) {
     //lcddata(glyph[6]);
     //lcddata(glyph[7]);
 }
+uint8_t char_width(char c) {
+    const unsigned char *glyph = tama_font[c - ' '];
+    return 3 + (glyph[2] != 0) + (glyph[3] != 0) + (glyph[4] != 0);
+}
+
 void lcdstring(char *str) {
     size_t len = strnlen(str, 100);
     for (int i = 0; i < len; i++)
@@ -160,8 +164,20 @@ uint8_t read_line(char* buffer) {
             buffer[read] = 0;
             return read;
         }
-        else if (code == 0x59 || code == 0x12) {
+        else if (code == 0x59 || code == 0x12) { // right shift / left shift
             shift_pressed = true;
+        }
+        else if (code == 0x66) { // backspace
+            if (read) {
+                read -= 1;
+                uint8_t w = char_width(buffer[read]);
+                col -= w;
+                for (int i = 0; i < w; i++)
+                    lcddata(0);
+                paint_buffer();
+                paint_buffer();
+                col -= w;
+            }
         }
         else if (code < 128) {
             char ch;
