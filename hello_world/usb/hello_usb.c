@@ -44,6 +44,12 @@ void lcddata(uint8_t cmd) {
     uint8_t l = (col >> 7) & 0x7;
     (*frame_buf)[l][(col++)&0x7f] = cmd;
 }
+void new_line() {
+    line = (line + 1) & 0x7;
+    col = line << 7;
+    for (int c = 0; c < 128; c++)
+        (*frame_buf)[line][c] = 0;
+}
 void paint_buffer() {
     for (uint8_t l = 0; l < 8; l++) {
         lcdcommand(0xb0 | l);
@@ -220,25 +226,79 @@ int lcdrun(/* uint a0, uint res, uint cs1 */) {
 #define DATA_PIN 14
 
 // mapping generated with scala code, copied from table at https://techdocs.altium.com/display/FPGA/PS2+Keyboard+Scan+Codes
-// val codeMap = "11621e32642552e63673d83e946045-4e=55q15w1de24r2dt2cy35u3ci43o44p4d[54]5b\\5da1cs1bd23f2bg34h33j3bk42l4b,4c'52z1ax22c21v2ab32n31m3a,41.49/4a 29".grouped(3).map { case d => (java.lang.Integer.parseInt(d.tail, 16),d.head) }.toMap
+// val codeMap = "11621e32642552e63673d83e946045-4e=55q15w1de24r2dt2cy35u3ci43o44p4d[54]5b\\5da1cs1bd23f2bg34h33j3bk42l4b;4c'52z1ax22c21v2ab32n31m3a,41.49/4a 29".grouped(3).map { case d => (java.lang.Integer.parseInt(d.tail, 16),d.head) }.toMap
 // (0 until 128).map { i => codeMap.getOrElse(i, '?') }.mkString // needs fixing for escaped chars
 char code_to_char_lower[128] =
-    "?????????????????????q1???zsaw2??cxde43?? vftr5??nbhgy6???mju78??,kio09??./l,p-???'?[=?????]?\\??????????????????????????????????";
+    "?????????????????????q1???zsaw2??cxde43?? vftr5??nbhgy6???mju78??,kio09??./l;p-???'\n[=?????]?\\??????????????????????????????????";
 char code_to_char[128] =
-    "?????????????????????Q1???ZSAW2??CXDE43?? VFTR5??NBHGY6???MJU78??,KIO09??./L,P-???'?[=?????]?\\??????????????????????????????????";
+    "?????????????????????Q!???ZSAW@??CXDE$#?? VFTR%??NBHGY^???MJU&*??<KIO)(??>?L:P_???\"\n{+?????}?|??????????????????????????????????";
 
-void keyboard_program() {
-    lcdinit();
+void put_char(uint8_t ch) {
+    if (ch == '\n') new_line();
+    else lcdchar(ch);
+    paint_buffer();
+}
 
+PIO pio;
+uint sm;
+
+uint8_t read_line(char* buffer) {
+    uint8_t read = 0;
+    bool shift_pressed = false;
+    while(read < 256) {
+        uint8_t code = ps2_program_getc(pio, sm);
+        if (code == 0x5a) { // enter
+            put_char('\n');
+            return read;
+        }
+        else if (code == 0x59 || code == 0x12) {
+            shift_pressed = true;
+        }
+        else if (code < 128) {
+            char ch;
+            if (shift_pressed) ch = code_to_char[code];
+            else ch = code_to_char_lower[code];
+
+            buffer[read++] = ch;
+            put_char(ch);
+        }
+        else if (code == 0xf0) {
+            // skip release code
+            code = ps2_program_getc(pio, sm);
+            if (code == 0x59 || code == 0x12)
+                shift_pressed = false;
+        }
+    }
+}
+
+void init_keyboard() {
     gpio_init(CLOCK_PIN);
     gpio_init(DATA_PIN);
     gpio_set_dir(CLOCK_PIN, GPIO_IN);
     gpio_set_dir(DATA_PIN, GPIO_IN);
 
-    PIO pio = pio0;
+    pio = pio0;
     uint offset = pio_add_program(pio, &ps2_program);
-    uint sm = pio_claim_unused_sm(pio, true);
+    sm = pio_claim_unused_sm(pio, true);
     ps2_program_init(pio, sm, offset, CLOCK_PIN, DATA_PIN);
+}
+
+void forth_init() {
+    lcdinit();
+    init_keyboard();
+    char buffer[256];
+
+    while(true) {
+        uint8_t read = read_line(buffer);
+        snprintf(buffer, 100, "Read %d chars", read);
+        lcdstring(buffer);
+        put_char('\n');
+    }
+}
+
+void keyboard_program() {
+    lcdinit();
+    init_keyboard();
     
     while(true) {
         uint8_t rxdata = ps2_program_getc(pio, sm);
@@ -252,6 +312,8 @@ void keyboard_program() {
             pio_sm_clear_fifos(pio, sm);
             sleep_ms(100);
         }
+        else if (rxdata == 0x5a) // newline
+            new_line();
         else if (rxdata < 128) {
             lcdchar(code_to_char[rxdata]);
         }
@@ -288,7 +350,9 @@ int main() {
     //lcdrun(12, 17, 13);
     //lcdrun(13, 12, 17);
     //lcdrun(/* 17, 12, 13 */);
-    keyboard_program();
+    //keyboard_program();
+    forth_init();
+
     //lcdrun();
     //lcdrun(13, 17, 12);
     //lcdrun(17, 12, 13);
