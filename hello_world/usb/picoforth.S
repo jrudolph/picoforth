@@ -93,15 +93,13 @@ regular_func DOCOL
     subs r5, #1 // clear thumb bit
     NEXT
 
-.set EXIT, 3f + 1 // set thumb bit
-3:
+EXIT:
     subs r7, #4
     ldr r5, [r7]
     ldr r1, [r5]
     bx r1
 
-.set LIT, 3f + 1 // set thumb bit
-3:
+LIT:
     push {r6}
     ldm r5!, {r6}
     NEXT
@@ -115,8 +113,11 @@ regular_func DOCOL
 .string "\name"     // name
 3:
 .align 2
-.set \label, 3f+1   // actual label with thumb bit set (so we can use bx)
-3:
+\label:
+.endm
+
+.macro do label
+    .word \label + 1 // set thumb bit
 .endm
 
 def_word MINUS,-
@@ -139,11 +140,11 @@ def_word DROP,drop
 
 def_word DOUBLE,double
     bl DOCOL
-    .word LIT
-    .word 0x1234
-    .word DUP
-    .word PLUS
-    .word EXIT
+    do LIT
+    do 0x1234
+    do DUP
+    do PLUS
+    do EXIT
 
 // final word definition needs to be written manually
 1:
