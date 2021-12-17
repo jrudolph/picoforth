@@ -102,6 +102,10 @@ EXIT:
 LIT:
     push {r6}
     ldm r5!, {r6}
+    // TODO: NEXT does another `ldm r5!, {r1}` directly afterwards, so it would be nice coalesce them
+    // that's currently not possible because we would need a register > r6 to be loaded afterwards
+    // but r7 is already taken (but maybe let's use a different calling convention later on. We
+    // have full control over the calling convention for assembled FORTH words.
     NEXT
 
 .macro def_word label,name
