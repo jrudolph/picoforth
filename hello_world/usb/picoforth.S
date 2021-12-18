@@ -10,12 +10,15 @@
 
 // forth conventions:
 //   stack contains user values
+//   r8 pointer to DOCOL (because it's so hard to assemble otherwise) FIXME: it might get mangled by using C funcs
 //   r7 return stack pointer
 //   r6 contains top of stack
 //   r5 threaded code pointer, values need to have thumb bit set, so that we can use `bx` directly
 
 regular_func forth_repl
     push {r4, r5, r6, r7, lr}
+    ldr r0, =DOCOL
+    mov r8, r0
     ldr r0, =#0xcafebabe
     ldr r6, =#0xdeadbeef
     push {r0} // bottom of forth stack
@@ -160,6 +163,14 @@ done:
     pop {r4, r5, pc}
 .pool
 
+// write word r0 to `here` and put back the increased value
+regular_func COMMA
+    ldr r1, =here
+    ldr r2, [r1]
+    stmia r2!, {r0}
+    str r2, [r1]
+    bx lr
+
 .macro NEXT
     ldm r5!, {r1}
     bx r1
@@ -228,6 +239,82 @@ def_word DOT,.
     pop {r6}
     NEXT
 
+// allocate a new word and enter compilation mode
+// afterwards:
+//   - latest should point to here
+def_word COLON,":"
+    ldr r1, =here
+    ldr r2, [r1] // start of allocation area
+
+    ldr r1, =latest
+    ldr r0, [r1] // old latest
+    push {r1, r2}
+    bl COMMA     // write old latest into link field
+    pop {r1, r2}
+    str r2, [r1] // *latest = *here (before writing anything)
+
+    ldr r1, =input_ptr
+    ldr r0, [r1]
+    bl parse_word
+    
+    // write entry
+    ldr r0, =here
+    ldr r0, [r0] // load current here (after writing link field)
+    
+    strb r1, [r0]
+    adds r0, #1
+
+copy_next_char:
+    tst r1, r1
+    beq copy_done
+    ldrb r3, [r2]
+    strb r3, [r0]
+    adds r0, #1
+    adds r2, #1
+    subs r1, #1
+    b copy_next_char
+
+copy_done:
+    // align and write back here
+    adds r0, #3
+    movs r1, #3
+    bics r0, r1
+
+    // assemble call to DOCOL
+    // basically this:
+    // mov r0, r8 -> 40 46
+    // blx r0     -> 80 47
+    // or 0x47804640
+    ldr r1, =#0x47804640
+    stmia r0!, {r1}
+
+    ldr r1, =here
+    str r0, [r1]
+    b RBRACK    
+        
+    // r0: number
+    // r1: char count
+    // r2: start of word
+
+def_word SEMICOLON,";"
+    // write EXIT
+    ldr r0, =EXIT+1
+    bl COMMA
+    b LBRACK
+
+def_word LBRACK,"[" // FIXME: , F_IMMEDIATE
+    ldr r0, =state
+    movs r1, #0
+    str r1, [r0]
+    NEXT
+
+def_word RBRACK,"]"
+    ldr r0, =state
+    movs r1, #1
+    str r1, [r0]
+    NEXT
+
+// example for compiled colon word
 def_word DOUBLE,double
     bl DOCOL
     do LIT
@@ -240,25 +327,11 @@ def_word DOUBLE,double
 1:
 .word 0
 .word 0
-//.byte 10
-//.ascii "          "
-
-regular_func exec_double_test
-    // setup forth env
-    ldr r7, =return_stack
-    ldr r5, =return
-    movs r6, #12 // initial stack val
-next:    
-    b DOUBLE
-return:
-    .word finished + 1
-finished:
-    bl finished
 
 .section .data
 here:            .word forth_code_area
 base:            .word 16
-state:           .word 0
+state:           .word 0 // 0 is interpretation mode | 1 is compilation mode
 latest:          .word latest_predefined
 input_ptr:       .word input_buffer
 input_buffer:    .space 256
