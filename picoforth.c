@@ -12,7 +12,6 @@
 #include "hardware/spi.h"
 #include "hardware/pio.h"
 #include "ps2.pio.h"
-#include "clocked_input.pio.h"
 
 #include "tama-mini02-font.h"
 #include "font8x8_basic.h"
