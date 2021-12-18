@@ -213,7 +213,7 @@ void exec_double_test();
 void forth_init() {
     lcdinit();
     init_keyboard();
-    exec_double_test();
+    //exec_double_test();
 
     while(true)
         forth_repl();

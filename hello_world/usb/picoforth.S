@@ -15,7 +15,7 @@
 //   r5 threaded code pointer, values need to have thumb bit set, so that we can use `bx` directly
 
 regular_func forth_repl
-    push {r4, r5, lr}
+    push {r4, r5, r6, lr}
 next_line:
     ldr r4, =input_buffer
     ldr r5, =input_ptr
@@ -29,9 +29,100 @@ next_word:
     beq next_line
     mov r0, r4
     bl parse_word
+    movs r4, r0 // save number if needed later
+    bl find_word
+    beq number // Z is set when nothing was found
+    bl execute_word
+    b next_word
 
-    pop {r4, r5, pc}
+number:
+    //push {r6}
+    ldr r1, =forth_stack_ptr
+    ldr r0, [r1]
+    subs r0, #4
+    str r4, [r0]
+    str r0, [r1]
+    //movs r6, r4 // push number literal
+    b next_word // go to next word in line
 
+    pop {r4, r5, r6, pc}
+
+// sets up registers to interpret a word
+regular_func execute_word
+    push {r4, r5, r6, r7, lr}
+    ldr r7, =return_stack
+    ldr r5, =return_pointer
+    
+    // setup forth code stack
+    mov r4, sp // keep existing in r4 during forth execution
+    ldr r1, =forth_stack_ptr
+    ldr r1, [r1]    
+    
+    mov sp, r1
+    pop {r6}
+    bx r0
+
+.align 2
+return_pointer:
+    .word 1f + 1
+1:
+    push {r6}
+    mov r1, sp
+    ldr r0, =forth_stack_ptr
+    str r1, [r0]
+    mov sp, r4 // reset old SP
+
+    pop {r4, r5, r6, r7, pc}
+
+// returns
+// r0: entry point for forth word or 0 if none found
+regular_func find_word
+// r1: input length
+// r2: input char buf
+// r3: entry pointer
+    push {r4, r5, r6, r7, lr}
+    ldr r3, =latest
+
+next_entry:
+    ldr r3, [r3]
+    tst r3, r3
+    beq not_found // found end of list
+
+    // compare size first
+    ldrb r0, [r3, #4] // load size field
+    cmp r0, r1
+    bne next_entry // if size doesn't match go directly to next entry
+
+    // then compare chars
+    // r0: dict name pointer
+    // r5: idx
+    // r6: dict char
+    // r7: input char
+    adds r0, r3, #5 // start of dict entry
+    movs r5, #0
+next_char:
+    ldrb r6, [r0, r5]
+    ldrb r7, [r2, r5]
+    cmp r6, r7
+    bne next_entry // char didn't match
+
+    adds r5, #1
+    cmp r5, r1
+    bne next_char
+
+    adds r0, r0, r5 // points after last char
+    // need to align to next half-word
+    adds r0, #1
+    movs r1, 1
+    orrs r0, r1 // set thumb bit for the upcoming jump
+
+not_found:
+    pop {r4, r5, r6, r7, pc}
+
+// returns:
+// r0: number
+// r1: char count
+// r2: start of word
 regular_func parse_word
     // r0: start of input buffer
     // r1: scratch
@@ -112,11 +203,11 @@ LIT:
 .align 2
 1:
 .word 1f            // pointer to next dict entry
-.word 3f -2f - 1    // size of name
+.byte 3f -2f        // size of name
 2:
-.string "\name"     // name
+.ascii "\name"     // name
 3:
-.align 2
+.align 1
 \label:
 .endm
 
@@ -124,6 +215,8 @@ LIT:
     .word \label + 1 // set thumb bit
 .endm
 
+.align 4
+latest_predefined:
 def_word MINUS,-
     pop {r1}
     subs r6, r1, r6
@@ -171,8 +264,10 @@ finished:
 here:            .word forth_code_area
 base:            .word 16
 state:           .word 0
-latest:          .word 0
+latest:          .word latest_predefined
 input_ptr:       .word input_buffer
 input_buffer:    .space 256
 return_stack:    .space 1000
+forth_stack:     .space 1000
+forth_stack_ptr: .word forth_stack_ptr - 4// initially points to itself, i.e. on top of the forth_stack area
 forth_code_area: .space 1000
