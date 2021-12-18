@@ -4,13 +4,14 @@
 
 #include "pico/asm_helper.S"
 
-// taking inspiration from https://niedzejkob.p4.team/bootstrap/miniforth/#keyboard-input for now
+// This whole project was spawned after reading about miniforth at
+// https://niedzejkob.p4.team/bootstrap/miniforth/#keyboard-input. This is heavily inspired and
+// in some cases an almost literal translation from x86 assembler.
 
 .section .text."x"
 
-// forth conventions:
+// our register conventions while running forth code:
 //   stack contains user values
-//   r8 pointer to DOCOL (because it's so hard to assemble otherwise) FIXME: it might get mangled by using C funcs
 //   r7 return stack pointer
 //   r6 contains top of stack
 //   r5 threaded code pointer, values need to have thumb bit set, so that we can use `bx` directly
@@ -313,7 +314,7 @@ copy_done:
     // What we want is just
     //   bl DOCOL
     //
-    // This uses addressing relative to PC.
+    // This instruction uses addressing relative to PC.
     // 
     // However, since COLON lives in flash and the generated code in SRAM
     // the difference is ~ 0x10000000 which is much more than the supported
@@ -323,13 +324,13 @@ copy_done:
     // immediate operands, so even if the address of DOCOL is known here, it
     // is pretty hard to reify it into the generated code.
     //
-    // A simple solution for now is to keep the address of DOCOL in r8 for now,
+    // A former solution was to keep the address of DOCOL in r8 for now,
     // which is easily accessible from generated code. However, r8 is not necessarily
     // safe to be used, since it can be mangled by any calls to C functions or interrupt
-    // handlers, so beware!
+    // handlers, so we would need to make sure to always save r8 before calling any external functions!
     // 
-    // basically this:
-    // mov r0, r8 -> 40 46
+    // Translation would be easy, though, and basically this:
+    // mov r0, r8 -> 40 46 // cannot call from r8 directly
     // blx r0     -> 80 47
     // or 0x47804640
     //
@@ -346,28 +347,18 @@ copy_done:
     // just ORing the relative position with that base instruction. Let's try this!
     ldr r1, =#0xf000f800
     ldr r2, =DOCOL_TRAMPOLINE
-    subs r2, r0 // relative address
-    subs r2, 4  // it's one word to large because we need the address after we have written
+    subs r2, r0     // relative address to the new code's position
+    subs r2, 4      // it's one word too large because we need the address after we have written
     lsrs r2, r2, #1 // lowest bit isn't encoded in the instruction (redundant because of alignment)
     orrs r1, r1, r2 // build instruction
     rev r1, r1      // reverse bytes...
-    rev16 r1, r1    // oh, yes, weird encoding of 32-bit thumb instructions...
+    rev16 r1, r1    // oh, yes, rev destroyed the little-endian byte order of the halfwords, it would probably be easier to use strh twice, instead
     stmia r0!, {r1} // store instruction
-
-    // add dummy instructions to this word for testing
-    //ldr r1, =LIT+1
-    //stmia r0!, {r1}
-    //movs r1, 0x42
-    //stmia r0!, {r1}
 
     ldr r1, =here
     str r0, [r1]
     b RBRACK    
         
-    // r0: number
-    // r1: char count
-    // r2: start of word
-
 def_word SEMICOLON,";",F_IMMEDIATE
     // write EXIT
     ldr r0, =EXIT+1
