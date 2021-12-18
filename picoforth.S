@@ -211,8 +211,7 @@ regular_func DOCOL
 EXIT:
     subs r7, #4
     ldr r5, [r7]
-    ldr r1, [r5]
-    bx r1
+    NEXT
 
 LIT:
     push {r6}
