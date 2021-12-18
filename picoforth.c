@@ -1,9 +1,3 @@
-/**
- * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
- *
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 #include <stdio.h>
 #include <string.h>
 #include "pico/stdlib.h"
@@ -237,9 +231,6 @@ void forth_init() {
 int main() {
     stdio_init_all();
     
-    /* sleep_ms(1000);
-    printf("Hello, world!\n"); */
-
     spi_init(spi_default, 1000 * 1000);
     gpio_set_function(PICO_DEFAULT_SPI_SCK_PIN, GPIO_FUNC_SPI);
     gpio_set_function(PICO_DEFAULT_SPI_TX_PIN, GPIO_FUNC_SPI);
