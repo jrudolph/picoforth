@@ -20,6 +20,10 @@ next_line:
     ldr r4, =input_buffer
     ldr r5, =input_ptr
     str r4, [r5]        // set ptr to start of buffer
+    movs r0, '>'
+    bl put_char
+    movs r0, ' '
+    bl put_char
     mov r0, r4
     bl read_line
 next_word:
@@ -235,6 +239,12 @@ def_word DROP,drop
     pop {r6}
     NEXT
 
+def_word DOT,.
+    movs r0, r6
+    bl print_number
+    pop {r6}
+    NEXT
+
 def_word DOUBLE,double
     bl DOCOL
     do LIT
@@ -246,7 +256,9 @@ def_word DOUBLE,double
 // final word definition needs to be written manually
 1:
 .word 0
-.word 0    
+.word 0
+//.byte 10
+//.ascii "          "
 
 regular_func exec_double_test
     // setup forth env

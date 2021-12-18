@@ -129,7 +129,7 @@ void lcdinit() {
     //lcdcommand(0xb1);
     sleep_ms(100);
 
-    lcdstring("> ");
+    //lcdstring("> ");
     lcdcommand(0xaf); // display on
     paint_buffer();
 }
@@ -148,6 +148,14 @@ char code_to_char[128] =
 void put_char(uint8_t ch) {
     if (ch == '\n') new_line();
     else lcdchar(ch);
+    paint_buffer();
+}
+
+void print_number(uint32_t num) {
+    char buffer[100];
+    snprintf(buffer, 100, "%d", num);
+    lcdstring(buffer);
+    put_char(' ');
     paint_buffer();
 }
 
