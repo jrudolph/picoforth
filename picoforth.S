@@ -228,6 +228,7 @@ LIT:
 
 .macro def_word label,name,flags=0
 .align 2
+___header_\label:
 1:
 .word 1f            // pointer to next dict entry
 .byte 3f - 2f + \flags     // size of name
