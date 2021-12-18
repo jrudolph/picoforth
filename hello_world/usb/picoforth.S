@@ -17,8 +17,6 @@
 
 regular_func forth_repl
     push {r4, r5, r6, r7, lr}
-    ldr r0, =DOCOL
-    mov r8, r0
     ldr r0, =#0xcafebabe
     ldr r6, =#0xdeadbeef
     push {r0} // bottom of forth stack
@@ -248,10 +246,9 @@ def_word COLON,":"
 
     ldr r1, =latest
     ldr r0, [r1] // old latest
-    push {r1, r2}
-    bl COMMA     // write old latest into link field
-    pop {r1, r2}
     str r2, [r1] // *latest = *here (before writing anything)
+   
+    bl COMMA     // write old latest into link field
 
     ldr r1, =input_ptr
     ldr r0, [r1]
@@ -281,12 +278,55 @@ copy_done:
     bics r0, r1
 
     // assemble call to DOCOL
+    // What we want is just
+    //   bl DOCOL
+    //
+    // This uses addressing relative to PC.
+    // 
+    // However, since COLON lives in flash and the generated code in SRAM
+    // the difference is ~ 0x10000000 which is much more than the supported
+    // 25 bit of range that bl offers.
+    //
+    // Unfortunately, there are no instructions that allow to have big enough
+    // immediate operands, so even if the address of DOCOL is known here, it
+    // is pretty hard to reify it into the generated code.
+    //
+    // A simple solution for now is to keep the address of DOCOL in r8 for now,
+    // which is easily accessible from generated code. However, r8 is not necessarily
+    // safe to be used, since it can be mangled by any calls to C functions or interrupt
+    // handlers, so beware!
+    // 
     // basically this:
     // mov r0, r8 -> 40 46
     // blx r0     -> 80 47
     // or 0x47804640
-    ldr r1, =#0x47804640
-    stmia r0!, {r1}
+    //
+    // ldr r1, =#0x47804640
+    // stmia r0!, {r1}
+    //
+    // An alternative is using a trampoline inside the .data section which is easy enough to
+    // reach with a relative jump, so let's try this
+    // What we want to assemble is
+    //   bl DOCOL_TRAMPOLINE
+    // We assume that it is a forward jump because we try to put DOCOL_TRAMPOLINE behind the
+    // forth_code_area
+    // Then `bl [PC, #0]` is 0xf000f800, jumps up to 4096 bytes forward should be representable by
+    // just ORing the relative position with that base instruction. Let's try this!
+    ldr r1, =#0xf000f800
+    ldr r2, =DOCOL_TRAMPOLINE
+    subs r2, r0 // relative address
+    subs r2, 4  // it's one word to large because we need the address after we have written
+    lsrs r2, r2, #1 // lowest bit isn't encoded in the instruction (redundant because of alignment)
+    orrs r1, r1, r2 // build instruction
+    rev r1, r1      // reverse bytes...
+    rev16 r1, r1    // oh, yes, weird encoding of 32-bit thumb instructions...
+    stmia r0!, {r1} // store instruction
+
+    // add dummy instructions to this word for testing
+    //ldr r1, =LIT+1
+    //stmia r0!, {r1}
+    //movs r1, 0x42
+    //stmia r0!, {r1}
 
     ldr r1, =here
     str r0, [r1]
@@ -336,4 +376,11 @@ latest:          .word latest_predefined
 input_ptr:       .word input_buffer
 input_buffer:    .space 256
 return_stack:    .space 1000
+
 forth_code_area: .space 1000
+
+// trampoline for code living in .data to be able to call DOCOL
+DOCOL_TRAMPOLINE:
+    ldr r0, =DOCOL
+    bx r0
+.pool
