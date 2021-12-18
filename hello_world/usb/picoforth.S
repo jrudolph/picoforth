@@ -41,8 +41,15 @@ next_word:
     bl parse_word
     movs r4, r0 // save number if needed later
     bl find_word
-    beq number // Z is set when nothing was found
+    // r0: pointer to word code, r1: flags
+    ldr r2, =state
+    ldr r2, [r2]
+    tst r0, r0
+    beq number
     
+    orrs r1, r1, r2 // FIXME: only compare against F_IMMEDIATE not against all flags
+    beq compile_word
+
     // execute word
     // setup threaded code return
     ldr r5, =return_pointer
@@ -54,15 +61,30 @@ return_pointer:
 
     b next_word
 
+compile_word:
+    bl COMMA
+    b next_word
+
 number:
+    tst r2, r2
+    beq compile_number
+
     push {r6}
     movs r6, r4 // push number literal
     b next_word // go to next word in line
+
+compile_number:
+    ldr r0, =LIT + 1
+    bl COMMA
+    mov r0, r4
+    bl COMMA
+    b next_word
 
     pop {r4, r5, r6, r7, pc}
 
 // returns
 // r0: entry point for forth word or 0 if none found
+// r1: flags
 regular_func find_word
 // r1: input length
 // r2: input char buf
@@ -77,6 +99,8 @@ next_entry:
 
     // compare size first
     ldrb r0, [r3, #4] // load size field
+    movs r4, LENGTH_MASK
+    ands r0, r0, r4
     cmp r0, r1
     bne next_entry // if size doesn't match go directly to next entry
 
@@ -102,6 +126,10 @@ next_char:
     adds r0, #1
     movs r1, 1
     orrs r0, r1 // set thumb bit for the upcoming jump
+
+    ldrb r1, [r3, #4]
+    movs r2, FLAGS_MASK
+    ands r1, r1, r2
 
 not_found:
     pop {r4, r5, r6, r7, pc}
@@ -195,11 +223,15 @@ LIT:
     // have full control over the calling convention for assembled FORTH words.
     NEXT
 
-.macro def_word label,name
+.set F_IMMEDIATE, 0x80
+.set LENGTH_MASK, 0x3f
+.set FLAGS_MASK, 0xc0
+
+.macro def_word label,name,flags=0
 .align 2
 1:
 .word 1f            // pointer to next dict entry
-.byte 3f -2f        // size of name
+.byte 3f - 2f + \flags     // size of name
 2:
 .ascii "\name"     // name
 3:
@@ -336,21 +368,24 @@ copy_done:
     // r1: char count
     // r2: start of word
 
-def_word SEMICOLON,";"
+def_word SEMICOLON,";",F_IMMEDIATE
     // write EXIT
     ldr r0, =EXIT+1
     bl COMMA
     b LBRACK
 
-def_word LBRACK,"[" // FIXME: , F_IMMEDIATE
+.set INTERPRETER_MODE, 1
+.set COMPILER_MODE, 0
+
+def_word LBRACK,"[",F_IMMEDIATE
     ldr r0, =state
-    movs r1, #0
+    movs r1, INTERPRETER_MODE
     str r1, [r0]
     NEXT
 
 def_word RBRACK,"]"
     ldr r0, =state
-    movs r1, #1
+    movs r1, COMPILER_MODE
     str r1, [r0]
     NEXT
 
@@ -371,12 +406,11 @@ def_word DOUBLE,double
 .section .data
 here:            .word forth_code_area
 base:            .word 16
-state:           .word 0 // 0 is interpretation mode | 1 is compilation mode
+state:           .word INTERPRETER_MODE
 latest:          .word latest_predefined
 input_ptr:       .word input_buffer
 input_buffer:    .space 256
 return_stack:    .space 1000
-
 forth_code_area: .space 1000
 
 // trampoline for code living in .data to be able to call DOCOL
