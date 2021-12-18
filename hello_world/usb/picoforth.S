@@ -15,8 +15,12 @@
 //   r5 threaded code pointer, values need to have thumb bit set, so that we can use `bx` directly
 
 regular_func forth_repl
-    push {r4, r5, r6, lr}
+    push {r4, r5, r6, r7, lr}
+    ldr r0, =#0xcafebabe
+    ldr r6, =#0xdeadbeef
+    push {r0} // bottom of forth stack
 next_line:
+    ldr r7, =return_stack
     ldr r4, =input_buffer
     ldr r5, =input_ptr
     str r4, [r5]        // set ptr to start of buffer
@@ -27,6 +31,7 @@ next_line:
     mov r0, r4
     bl read_line
 next_word:
+    ldr r5, =input_ptr
     ldr r4, [r5]
     ldrb r0, [r4]
     ands r0, r0
@@ -36,45 +41,22 @@ next_word:
     movs r4, r0 // save number if needed later
     bl find_word
     beq number // Z is set when nothing was found
-    bl execute_word
-    b next_word
-
-number:
-    //push {r6}
-    ldr r1, =forth_stack_ptr
-    ldr r0, [r1]
-    subs r0, #4
-    str r4, [r0]
-    str r0, [r1]
-    //movs r6, r4 // push number literal
-    b next_word // go to next word in line
-
-    pop {r4, r5, r6, pc}
-
-// sets up registers to interpret a word
-regular_func execute_word
-    push {r4, r5, r6, r7, lr}
-    ldr r7, =return_stack
+    
+    // execute word
+    // setup threaded code return
     ldr r5, =return_pointer
-    
-    // setup forth code stack
-    mov r4, sp // keep existing in r4 during forth execution
-    ldr r1, =forth_stack_ptr
-    ldr r1, [r1]    
-    
-    mov sp, r1
-    pop {r6}
     bx r0
 
 .align 2
 return_pointer:
-    .word 1f + 1
-1:
+    .word next_word + 1
+
+    b next_word
+
+number:
     push {r6}
-    mov r1, sp
-    ldr r0, =forth_stack_ptr
-    str r1, [r0]
-    mov sp, r4 // reset old SP
+    movs r6, r4 // push number literal
+    b next_word // go to next word in line
 
     pop {r4, r5, r6, r7, pc}
 
@@ -171,6 +153,7 @@ digit:
 
 done:
     ldr r1, =#input_ptr
+    subs r0, #1 // FIXME: because we already added one before
     str r0, [r1]
     movs r0, r4
     movs r1, r5
@@ -280,6 +263,4 @@ latest:          .word latest_predefined
 input_ptr:       .word input_buffer
 input_buffer:    .space 256
 return_stack:    .space 1000
-forth_stack:     .space 1000
-forth_stack_ptr: .word forth_stack_ptr - 4// initially points to itself, i.e. on top of the forth_stack area
 forth_code_area: .space 1000

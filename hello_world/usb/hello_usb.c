@@ -153,7 +153,7 @@ void put_char(uint8_t ch) {
 
 void print_number(uint32_t num) {
     char buffer[100];
-    snprintf(buffer, 100, "%d", num);
+    snprintf(buffer, 100, "0x%x", num);
     lcdstring(buffer);
     put_char(' ');
     paint_buffer();
