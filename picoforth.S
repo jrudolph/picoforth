@@ -264,7 +264,13 @@ def_word DROP,drop
     pop {r6}
     NEXT
 
-def_word DOT,.
+def_word SWAP,swap
+    pop {r1}
+    push {r6}
+    mov r6, r1
+    NEXT
+
+def_word UDOT,u.
     movs r0, r6
     bl print_number
     pop {r6}
@@ -380,7 +386,7 @@ def_word RBRACK,"]"
     str r1, [r0]
     NEXT
 
-// example for compiled colon word
+// example for encoding of compiled colon word
 def_word DOUBLE,double
     bl DOCOL
     do LIT
@@ -389,7 +395,45 @@ def_word DOUBLE,double
     do PLUS
     do EXIT
 
+def_word PEEK,"@" // (addr -- val)
+    ldr r6, [r6]
+    NEXT
+
+def_word POKE,"!" // (val addr -- )
+    pop {r0,r1}
+    str r0, [r6]
+    movs r1, r6
+    NEXT
+
+def_word CPEEK,"c@" // (addr -- ch)
+    ldrb r6, [r6]
+    NEXT
+
+def_word CPOKE,"c!" // (ch addr -- )
+    pop {r0,r1}
+    strb r0, [r6]
+    movs r1, r6
+    NEXT
+
+def_word TO_R,">r" // (val -- )
+    stmia r7!, {r6}
+    pop {r6}
+    NEXT
+
+def_word FROM_R,"r>" // ( -- val)
+    push {r6}
+    subs r7, #4
+    ldr r6, [r7]
+    NEXT
+
+def_word EMIT,emit // (ch -- )
+    mov r0, r6
+    bl put_char
+    pop {r6}
+    NEXT
+
 // final word definition needs to be written manually
+.align 2
 1:
 .word 0
 .word 0
