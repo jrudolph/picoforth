@@ -1,15 +1,3 @@
-<<<<<<< HEAD
-add_executable(hello_usb
-        hello_usb.c
-        )
-
-# Pull in our pico_stdlib which aggregates commonly used features
-target_link_libraries(hello_usb pico_stdlib)
-
-# enable usb output, disable uart output
-pico_enable_stdio_usb(hello_usb 1)
-pico_enable_stdio_uart(hello_usb 0)
-=======
 cmake_minimum_required(VERSION 3.13)
 
 include(/home/johannes/git/self/_2021/pico-sdk/external/pico_sdk_import.cmake)
@@ -33,7 +21,6 @@ pico_generate_pio_header(picoforth ${CMAKE_CURRENT_LIST_DIR}/ps2.pio)
 
 # Pull in our pico_stdlib which aggregates commonly used features
 target_link_libraries(picoforth pico_stdlib hardware_pio hardware_i2c hardware_spi)
->>>>>>> cleanup build and make sure standalone build works
 
 # create map/bin/hex/uf2 file etc.
 pico_add_extra_outputs(picoforth)
