@@ -13,7 +13,7 @@
 // our register conventions while running forth code:
 //   stack contains user values
 //   r7 return stack pointer
-//   r6 contains top of stack
+//   r6 top element of stack
 //   r5 threaded code pointer, values need to have thumb bit set, so that we can use `bx` directly
 
 regular_func forth_repl
@@ -51,6 +51,7 @@ next_word:
     orrs r1, r1, r2 // FIXME: only compare against F_IMMEDIATE not against all flags
     beq compile_word
 
+execute_word:
     // execute word
     // setup threaded code return
     ldr r5, =return_pointer
@@ -163,7 +164,6 @@ word_chars:
     movs r3, #0x20
     mvns r3, r3
     ldrb r1, [r0]
-    adds r0, #1
 
     ands r1, r3 // if '\0' or ' '
     beq done
@@ -177,13 +177,12 @@ digit:
     ldr r3, =#base
     ldr r3, [r3]
     muls r4, r4, r3
-    sxtb r1, r1
     adds r4, r1
+    adds r0, #1
     b word_chars
 
 done:
     ldr r1, =#input_ptr
-    subs r0, #1 // FIXME: because we already added one before
     str r0, [r1]
     movs r0, r4
     movs r1, r5
