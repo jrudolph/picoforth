@@ -10,11 +10,9 @@
 #include "tama-mini02-font.h"
 #include "font8x8_basic.h"
 
-uint LCDA0_PIN = 13;
-uint LCDRES_PIN = 12;
-uint LCDCS1_PIN = 17;
-const uint LCDCLK_PIN = 18;
-const uint LCDTX_PIN = 19;
+const uint LCDA0_PIN = 13;
+const uint LCDRES_PIN = 12;
+const uint LCDCS1_PIN = 17;
 
 void lcdcommand(uint8_t cmd) {
     printf("CMD: %x\n", cmd);
