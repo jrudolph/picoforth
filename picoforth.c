@@ -39,8 +39,10 @@ void lcddata(uint8_t cmd) {
 void new_line() {
     uint8_t line = ((col >> 7) + 1) & 0x07;
     col = line << 7;
-    for (int c = 0; c < 128; c++)
-        (*frame_buf)[line][c] = 0;
+    // delete this line and next (to see more easily where we are)
+    for (int l = line; l <= line + 1; l++)
+        for (int c = 0; c < 128; c++)
+            (*frame_buf)[l& 0x7f][c] = 0;
 }
 void paint_buffer() {
     for (uint8_t l = 0; l < 8; l++) {
