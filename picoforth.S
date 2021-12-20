@@ -19,8 +19,14 @@
 regular_func forth_repl
     push {r4, r5, r6, r7, lr}
     ldr r0, =#0xcafebabe
-    ldr r6, =#0xdeadbeef
-    push {r0} // bottom of forth stack
+    ldr r1, =#0xdeadbeef
+    push {r0,r1} // bottom of forth stack (to make it easier to detect buffer underflows until we have explicit checking)
+    // Put these constant addresses on top of the stack: latest st base dp
+    ldr r2, =latest
+    ldr r1, =state
+    ldr r0, =base
+    push {r0, r1, r2} // lowest register gets lowest address, i.e. is on top of stack
+    ldr r6, =dp
 next_line:
     ldr r7, =return_stack
     ldr r4, =input_buffer
@@ -189,9 +195,9 @@ done:
     pop {r4, r5, pc}
 .pool
 
-// write word r0 to `here` and put back the increased value
+// write word r0 to `here` and put back the increased value to `dp`
 regular_func COMMA
-    ldr r1, =here
+    ldr r1, =dp
     ldr r2, [r1]
     stmia r2!, {r0}
     str r2, [r1]
@@ -279,12 +285,12 @@ def_word UDOT,u.
 // afterwards:
 //   - latest should point to here
 def_word COLON,":"
-    ldr r1, =here
+    ldr r1, =dp
     ldr r2, [r1] // start of allocation area
 
     ldr r1, =latest
     ldr r0, [r1] // old latest
-    str r2, [r1] // *latest = *here (before writing anything)
+    str r2, [r1] // *latest = *dp (before writing anything)
    
     bl COMMA     // write old latest into link field
 
@@ -293,7 +299,7 @@ def_word COLON,":"
     bl parse_word
     
     // write entry
-    ldr r0, =here
+    ldr r0, =dp
     ldr r0, [r0] // load current here (after writing link field)
     
     strb r1, [r0]
@@ -310,7 +316,7 @@ copy_next_char:
     b copy_next_char
 
 copy_done:
-    // align and write back here
+    // align and write `here` back to dp
     adds r0, #3
     movs r1, #3
     bics r0, r1
@@ -360,7 +366,7 @@ copy_done:
     rev16 r1, r1    // oh, yes, rev destroyed the little-endian byte order of the halfwords, it would probably be easier to use strh twice, instead
     stmia r0!, {r1} // store instruction
 
-    ldr r1, =here
+    ldr r1, =dp
     str r0, [r1]
     b RBRACK    
         
@@ -438,11 +444,11 @@ def_word EMIT,emit // (ch -- )
 .word 0
 
 .section .data
-here:            .word forth_code_area
-base:            .word 16
+dp:              .word forth_code_area   // pointer to here
+base:            .word 16                // base for number parsing
 state:           .word INTERPRETER_MODE
-latest:          .word latest_predefined
-input_ptr:       .word input_buffer
+latest:          .word latest_predefined // points to latest dictionary entry
+input_ptr:       .word input_buffer      // points to next char to consume from input
 input_buffer:    .space 256
 return_stack:    .space 1000
 forth_code_area: .space 1000
