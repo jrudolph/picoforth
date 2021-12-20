@@ -407,7 +407,7 @@ def_word PEEK,"@" // (addr -- val)
 def_word POKE,"!" // (val addr -- )
     pop {r0,r1}
     str r0, [r6]
-    movs r1, r6
+    movs r6, r1
     NEXT
 
 def_word CPEEK,"c@" // (addr -- ch)
@@ -417,7 +417,7 @@ def_word CPEEK,"c@" // (addr -- ch)
 def_word CPOKE,"c!" // (ch addr -- )
     pop {r0,r1}
     strb r0, [r6]
-    movs r1, r6
+    movs r6, r1
     NEXT
 
 def_word TO_R,">r" // (val -- )
