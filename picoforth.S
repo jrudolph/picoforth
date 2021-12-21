@@ -47,6 +47,8 @@ next_word:
     beq next_line
     mov r0, r4
     bl parse_word
+    tst r1, r1  // on trailing whitespace we might read an empty word, in this case just read next line
+    beq next_line
     movs r4, r0 // save number if needed later
     bl find_word
     // r0: pointer to word code, r1: flags
