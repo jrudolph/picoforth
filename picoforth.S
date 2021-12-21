@@ -21,11 +21,12 @@ regular_func forth_repl
     ldr r0, =#0xcafebabe
     ldr r1, =#0xdeadbeef
     push {r0,r1} // bottom of forth stack (to make it easier to detect buffer underflows until we have explicit checking)
-    // Put these constant addresses on top of the stack: latest st base dp
+    // Put these constant addresses on top of the stack: input_ptr latest st base dp
+    ldr r3, =input_ptr
     ldr r2, =latest
     ldr r1, =state
     ldr r0, =base
-    push {r0, r1, r2} // lowest register gets lowest address, i.e. is on top of stack
+    push {r0, r1, r2, r3} // lowest register gets lowest address, i.e. is on top of stack
     ldr r6, =dp
 next_line:
     ldr r7, =return_stack
