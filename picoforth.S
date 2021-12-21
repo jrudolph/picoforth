@@ -438,8 +438,28 @@ def_word EMIT,emit // (ch -- )
     pop {r6}
     NEXT
 
+// just repoint input_ptr and then forget about rest of line
+def_word LOAD,load // (addr -- )
+    ldr r0, =input_ptr
+    str r6, [r0]
+    pop {r6}
+    NEXT
+
+def_word LINE,"s:"
+    ldr r0, =input_ptr
+    ldr r0, [r0]
+    movs r2, #0
+2:
+    ldrb r1, [r0, r2]
+    strb r1, [r6, r2]
+    adds r2, #1
+    tst r1, r1
+    bne 2b
+    add r6, r2 // update pointer on top of stack
+    NEXT
+
 // final word definition needs to be written manually
-.align 2
+.align 4
 1:
 .word 0
 .word 0
