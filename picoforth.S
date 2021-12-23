@@ -21,13 +21,13 @@ regular_func forth_repl
     ldr r0, =#0xcafebabe
     ldr r1, =#0xdeadbeef
     push {r0,r1} // bottom of forth stack (to make it easier to detect buffer underflows until we have explicit checking)
-    // Put these constant addresses on top of the stack: input_ptr latest st base dp
-    ldr r3, =input_ptr
-    ldr r2, =latest
-    ldr r1, =state
-    ldr r0, =base
+    // Put these constant addresses on top of the stack: latest st base dp input_ptr
+    ldr r3, =latest
+    ldr r2, =state
+    ldr r1, =base
+    ldr r0, =dp
     push {r0, r1, r2, r3} // lowest register gets lowest address, i.e. is on top of stack
-    ldr r6, =dp
+    ldr r6, =input_ptr
 next_line:
     ldr r7, =return_stack
     ldr r4, =input_buffer
@@ -440,10 +440,22 @@ def_word EMIT,emit // (ch -- )
     pop {r6}
     NEXT
 
-// just repoint input_ptr and then forget about rest of line
-def_word LOAD,load // (addr -- )
-    ldr r0, =input_ptr
-    str r6, [r0]
+// calls flash_range_program
+def_word STORE,store // ( len buf target_addr -- )
+    // r0 - addr
+    // r1 - buf
+    // r2 - len
+    mov r0, r6
+    pop {r1, r2}
+    bl flash_range_program
+    pop {r6}
+    NEXT
+
+// calls flash_range_erase
+def_word ERASE,erase // (len target_off -- )
+    mov r0, r6
+    pop {r1}
+    bl flash_range_erase
     pop {r6}
     NEXT
 
@@ -465,6 +477,8 @@ def_word LINE,"s:"
 1:
 .word 0
 .word 0
+
+.pool
 
 .section .data
 dp:              .word forth_code_area   // pointer to here

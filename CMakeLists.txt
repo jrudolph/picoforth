@@ -20,7 +20,7 @@ target_sources(picoforth PRIVATE picoforth.c picoforth.S)
 pico_generate_pio_header(picoforth ${CMAKE_CURRENT_LIST_DIR}/ps2.pio)
 
 # Pull in our pico_stdlib which aggregates commonly used features
-target_link_libraries(picoforth pico_stdlib hardware_pio hardware_i2c hardware_spi)
+target_link_libraries(picoforth pico_stdlib hardware_pio hardware_i2c hardware_spi hardware_flash)
 
 # create map/bin/hex/uf2 file etc.
 pico_add_extra_outputs(picoforth)
