@@ -469,7 +469,9 @@ def_word LINE,"s:"
     adds r2, #1
     tst r1, r1
     bne 2b
-    add r6, r2 // update pointer on top of stack
+    subs r2, #1 // go back to point to final \0
+    add r0, r2  // update input_ptr to final \0
+    add r6, r2  // update write pointer on top of stack to final \0, so further appends with overwrite \0
     NEXT
 
 // final word definition needs to be written manually
