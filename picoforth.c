@@ -140,7 +140,7 @@ void put_char(uint8_t ch) {
 
 void print_number(uint32_t num) {
     char buffer[100];
-    snprintf(buffer, 100, "0x%x", num);
+    snprintf(buffer, 100, "%X", num);
     lcdstring(buffer);
     put_char(' ');
     paint_buffer();
@@ -155,7 +155,6 @@ uint8_t read_line(char* buffer) {
     while(read < 256) {
         uint8_t code = ps2_program_getc(pio, sm);
         if (code == 0x5a) { // enter
-            put_char('\n');
             buffer[read] = 0;
             return read;
         }

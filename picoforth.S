@@ -44,7 +44,12 @@ next_word:
     ldr r4, [r5]
     ldrb r0, [r4]
     ands r0, r0
-    beq next_line
+    bne parse_next
+    ldr r0, =ok_string
+    bl lcdstring
+    bl new_line
+    b next_line
+parse_next:
     mov r0, r4
     bl parse_word
     tst r1, r1  // on trailing whitespace we might read an empty word, in this case just read next line
@@ -92,6 +97,8 @@ compile_number:
     b next_word
 
     pop {r4, r5, r6, r7, pc}
+
+ok_string: .asciz " ok"
 
 // returns
 // r0: entry point for forth word or 0 if none found
