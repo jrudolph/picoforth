@@ -35,18 +35,18 @@ void lcddata(uint8_t cmd) {
 void new_line() {
     uint8_t line = ((col >> 7) + 1) & 0x07;
     col = line << 7;
-    // delete this line and next (to see more easily where we are)
-    for (int l = line; l <= line + 1; l++)
-        for (int c = 0; c < 128; c++)
-            frame_buffer[l& 0x7f][c] = 0;
+    for (int c = 0; c < 128; c++)
+        frame_buffer[line][c] = 0;
 }
 void paint_buffer() {
+    uint8_t first_line = ((col >> 7) + 1) & 0x7;
     for (uint8_t l = 0; l < 8; l++) {
         lcdcommand(0xb0 | l);
         lcdcommand(0x10); // select column 4
         lcdcommand(0x04);
         for (uint8_t c = 0; c < 128; c++)
-            lcddata_send(frame_buffer[l][c]);
+            lcddata_send(frame_buffer[(l + first_line) & 0x7][c]);
+
     }
 }
 
