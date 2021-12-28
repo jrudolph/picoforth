@@ -489,8 +489,8 @@ state:           .word INTERPRETER_MODE
 latest:          .word latest_predefined // points to latest dictionary entry
 input_ptr:       .word input_buffer      // points to next char to consume from input
 input_buffer:    .space 256
-return_stack:    .space 1000
-forth_code_area: .space 1000
+return_stack:    .space 1024
+forth_code_area: .space 65536
 
 // trampoline for code living in .data to be able to call DOCOL
 DOCOL_TRAMPOLINE:
