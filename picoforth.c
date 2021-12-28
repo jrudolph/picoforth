@@ -25,14 +25,12 @@ void lcddata_send(uint8_t cmd) {
     spi_write_blocking (spi_default, &cmd, 1);
 }
 
-bool current_buffer = 0;
-uint8_t frame_buffers[2][8][128]; // 8 lines of 128 columns of 8 pixel height = 64 * 128 bit
-uint8_t (*frame_buf)[8][128] = &frame_buffers[0];
+uint8_t frame_buffer[8][128]; // 8 lines of 128 columns of 8 pixel height = 64 * 128 bit
 
 int col = 0;
 void lcddata(uint8_t cmd) {
     uint8_t l = (col >> 7) & 0x7;
-    (*frame_buf)[l][(col++)&0x7f] = cmd;
+    frame_buffer[l][(col++)&0x7f] = cmd;
 }
 void new_line() {
     uint8_t line = ((col >> 7) + 1) & 0x07;
@@ -40,7 +38,7 @@ void new_line() {
     // delete this line and next (to see more easily where we are)
     for (int l = line; l <= line + 1; l++)
         for (int c = 0; c < 128; c++)
-            (*frame_buf)[l& 0x7f][c] = 0;
+            frame_buffer[l& 0x7f][c] = 0;
 }
 void paint_buffer() {
     for (uint8_t l = 0; l < 8; l++) {
@@ -48,12 +46,8 @@ void paint_buffer() {
         lcdcommand(0x10); // select column 4
         lcdcommand(0x04);
         for (uint8_t c = 0; c < 128; c++)
-            lcddata_send(frame_buffers[0][l][c] | frame_buffers[1][l][c]);
+            lcddata_send(frame_buffer[l][c]);
     }
-    current_buffer = !current_buffer;
-    void *old_buf = frame_buf;
-    frame_buf = &(frame_buffers[current_buffer & 1]);
-    memcpy(frame_buf, old_buf, 128 * 8);
 }
 
 void lcdchar(char c) {
