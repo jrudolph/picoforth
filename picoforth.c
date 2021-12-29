@@ -31,12 +31,14 @@ int col = 0;
 void lcddata(uint8_t cmd) {
     uint8_t l = (col >> 7) & 0x7;
     frame_buffer[l][(col++)&0x7f] = cmd;
+    // if we just wrapped over, delete the rest of the line
+    if ((col & 0x7f) == 1)
+        for (int c = 1; c < 128; c++)
+            frame_buffer[l][c] = 0;
 }
 void new_line() {
     uint8_t line = ((col >> 7) + 1) & 0x07;
     col = line << 7;
-    for (int c = 0; c < 128; c++)
-        frame_buffer[line][c] = 0;
 }
 void paint_buffer() {
     uint8_t first_line = ((col >> 7) + 1) & 0x7;
