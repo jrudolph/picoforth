@@ -25,11 +25,13 @@ void lcddata_send(uint8_t cmd) {
     spi_write_blocking (spi_default, &cmd, 1);
 }
 
-uint8_t frame_buffer[8][128]; // 8 lines of 128 columns of 8 pixel height = 64 * 128 bit
+#define NUM_LINES 16
+const uint8_t LINE_MASK = NUM_LINES - 1;
+uint8_t frame_buffer[NUM_LINES][128]; // 8 lines of 128 columns of 8 pixel height = 64 * 128 bit
 
 int col = 0;
 void lcddata(uint8_t cmd) {
-    uint8_t l = (col >> 7) & 0x7;
+    uint8_t l = (col >> 7) & LINE_MASK;
     frame_buffer[l][(col++)&0x7f] = cmd;
     // if we just wrapped over, delete the rest of the line
     if ((col & 0x7f) == 1)
@@ -37,17 +39,17 @@ void lcddata(uint8_t cmd) {
             frame_buffer[l][c] = 0;
 }
 void new_line() {
-    uint8_t line = ((col >> 7) + 1) & 0x07;
+    uint8_t line = ((col >> 7) + 1) & LINE_MASK;
     col = line << 7;
 }
 void paint_buffer() {
-    uint8_t first_line = ((col >> 7) + 1) & 0x7;
+    uint8_t first_line = ((col >> 7) - 7) & LINE_MASK;
     for (uint8_t l = 0; l < 8; l++) {
         lcdcommand(0xb0 | l);
         lcdcommand(0x10); // select column 4
         lcdcommand(0x04);
         for (uint8_t c = 0; c < 128; c++)
-            lcddata_send(frame_buffer[(l + first_line) & 0x7][c]);
+            lcddata_send(frame_buffer[(l + first_line) & LINE_MASK][c]);
 
     }
 }
